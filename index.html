@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spriti BOmb</title>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #020202, #0d0202, #180303);
+            font-family: sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+
+        #click-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 9999;
+            cursor: pointer;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #initial-ui {
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: opacity 0.3s ease-out;
+            pointer-events: none; 
+        }
+
+        .instruction-text {
+            color: white;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: pulse-glow 1.5s infinite alternate;
+            text-shadow: 0 0 10px #fff, 0 0 20px #ff0055, 0 0 30px #8b0000;
+            font-weight: bold;
+        }
+
+        @keyframes pulse-glow {
+            from { opacity: 0.7; transform: translateY(0); }
+            to { opacity: 1; transform: translateY(-5px); }
+        }
+
+        .pipe-svg {
+            width: 55px;
+            height: auto;
+            filter: drop-shadow(0 0 10px rgba(255, 0, 85, 0.6));
+        }
+    </style>
+</head>
+<body>
+
+    <div id="click-overlay" onclick="launch()"></div>
+    <canvas id="canvas-container"></canvas>
+
+    <div id="initial-ui">
+        <div class="instruction-text">Klik Di Mana Saja</div>
+        <svg class="pipe-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="pipeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#550011" />
+                    <stop offset="50%" stop-color="#ff0055" />
+                    <stop offset="100%" stop-color="#550011" />
+                </linearGradient>
+            </defs>
+            <rect x="45" y="120" width="10" height="80" fill="#1a0005" />
+            <path d="M 20 120 C 20 80, 40 40, 50 10 C 60 40, 80 80, 80 120 Z" fill="url(#pipeGrad)" stroke="#ff4d88" stroke-width="2"/>
+            <line x1="35" y1="120" x2="50" y2="30" stroke="#ff4d88" stroke-width="1" opacity="0.6"/>
+            <line x1="65" y1="120" x2="50" y2="30" stroke="#ff4d88" stroke-width="1" opacity="0.6"/>
+        </svg>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas-container');
+        const ctx = canvas.getContext('2d');
+        let cw, ch;
+
+        let appState = 'waiting'; 
+        let launchStartTime = 0;
+        const LAUNCH_DURATION = 200; 
+
+        function resize() {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+            if (appState === 'fireworks') {
+                generateShapePoints(); 
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- BINTANG ---
+        const stars = [];
+        const numStars = 120;
+        for (let i = 0; i < numStars; i++) {
+            stars.push({
+                x: Math.random() * cw,
+                y: Math.random() * ch,
+                r: Math.random() * 1.2 + 0.4,
+                alpha: Math.random(),
+                blinkRate: Math.random() * 0.015 + 0.003
+            });
+        }
+
+        function drawStars() {
+            ctx.clearRect(0, 0, cw, ch);
+            stars.forEach((star, index) => {
+                star.alpha += star.blinkRate;
+                if (star.alpha > 1 || star.alpha < 0.2) star.blinkRate *= -1;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fill();
+
+                if (index % 12 === 0) {
+                    for (let j = index + 1; j < stars.length; j++) {
+                        let dx = star.x - stars[j].x;
+                        let dy = star.y - stars[j].y;
+                        let dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < 85) {
+                            ctx.beginPath();
+                            ctx.moveTo(star.x, star.y);
+                            ctx.lineTo(stars[j].x, stars[j].y);
+                            ctx.strokeStyle = `rgba(255, 180, 200, ${0.12 - dist/750})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- PARTIKEL BEBAS ---
+        let particles = [];
+        const baseColors = ['#ff0055', '#ff3366', '#ff6699', '#cc0033', '#8b0000'];
+
+        class Particle {
+            constructor(x, y, isProjectile = false) {
+                this.x = x;
+                this.y = y;
+                this.isProjectile = isProjectile;
+                this.history = [];
+                this.historyLength = isProjectile ? 12 : 6;
+                
+                if (isProjectile) {
+                    this.vx = 0;
+                    this.vy = -(ch * 0.6) / (LAUNCH_DURATION / 16.66);
+                    this.color = '#ffffff';
+                    this.life = 1;
+                    this.size = 3;
+                } else {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = Math.random() * 6 + 2;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.color = baseColors[Math.floor(Math.random() * baseColors.length)];
+                    this.life = 1;
+                    this.decay = Math.random() * 0.02 + 0.015;
+                    this.size = Math.random() * 2 + 1;
+                }
+            }
+
+            update() {
+                this.history.push({ x: this.x, y: this.y });
+                if (this.history.length > this.historyLength) this.history.shift();
+
+                if (!this.isProjectile) {
+                    this.vy += 0.12; 
+                    this.vx *= 0.97; 
+                    this.vy *= 0.97;
+                    this.life -= this.decay;
+                }
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw() {
+                if (this.history.length < 2) return;
+                ctx.beginPath();
+                ctx.moveTo(this.history[0].x, this.history[0].y);
+                for (let i = 1; i < this.history.length; i++) {
+                    ctx.lineTo(this.history[i].x, this.history[i].y);
+                }
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = this.size;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.globalAlpha = this.life;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // --- PARTIKEL POLA ---
+        let shapeParticles = [];
+
+        class ShapeParticle {
+            constructor(tx, ty, type) {
+                this.x = cw / 2 + (Math.random() - 0.5) * 100;
+                this.y = ch * 0.4 + (Math.random() - 0.5) * 100;
+                this.tx = tx;
+                this.ty = ty;
+                this.type = type; // 'bg' (sketsa bunga), 'redjohn' (logo merah darah), 'text' (tulisan semangat meli)
+                
+                if (type === 'bg') {
+                    // Sketsa Bunga di Background (Redup & Transparan)
+                    this.color = Math.random() > 0.5 ? '#ff3366' : '#ff6699';
+                    this.size = Math.random() * 1 + 0.5;
+                    this.maxAlpha = Math.random() * 0.35 + 0.2;
+                } else if (type === 'redjohn') {
+                    // Logo Red John / Senyum Berdarah (Merah Darah Pekat)
+                    this.color = Math.random() > 0.3 ? '#ff0000' : '#cc0000';
+                    this.size = Math.random() * 1.5 + 1.1;
+                    this.maxAlpha = 1;
+                } else {
+                    // Tulisan "Semangat Meli" (Pink dengan gradasi merah cerah)
+                    this.color = Math.random() > 0.3 ? '#ff66b2' : '#ff0055';
+                    this.size = Math.random() * 1.5 + 1.1;
+                    this.maxAlpha = 1;
+                }
+                
+                this.alpha = 0;
+                this.sparkle = Math.random() * 0.05 + 0.01;
+                this.sparkleDir = 1;
+            }
+
+            update() {
+                this.x += (this.tx - this.x) * 0.08;
+                this.y += (this.ty - this.y) * 0.08;
+
+                if (this.alpha < this.maxAlpha) this.alpha += 0.04;
+
+                this.x += (Math.random() - 0.5) * 0.7;
+                this.y += (Math.random() - 0.5) * 0.7;
+
+                this.alpha += this.sparkle * this.sparkleDir;
+                if (this.alpha > this.maxAlpha) { this.alpha = this.maxAlpha; this.sparkleDir = -1; }
+                if (this.alpha < this.maxAlpha * 0.4) { this.alpha = this.maxAlpha * 0.4; this.sparkleDir = 1; }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                ctx.shadowBlur = this.type === 'bg' ? 3 : 12;
+                ctx.shadowColor = this.type === 'redjohn' ? '#ff0000' : (this.type === 'bg' ? '#ff3366' : '#ff0055');
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function generateShapePoints() {
+            shapeParticles = [];
+            
+            let scale = cw < 768 ? 0.55 : 1;
+            let centerX = cw / 2;
+            let centerY = ch * 0.45;
+
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = cw;
+            tempCanvas.height = ch;
+
+            // 1. SKETSA BUNGA (Background)
+            let flowerRadius = 240 * scale;
+            tempCtx.strokeStyle = '#ffffff';
+            tempCtx.lineWidth = 2;
+            
+            tempCtx.beginPath();
+            tempCtx.arc(centerX, centerY, flowerRadius * 0.35, 0, Math.PI * 2);
+            tempCtx.stroke();
+
+            const numPetals = 28;
+            for (let i = 0; i < numPetals; i++) {
+                let angle = (i * Math.PI * 2) / numPetals;
+                tempCtx.save();
+                tempCtx.translate(centerX, centerY);
+                tempCtx.rotate(angle);
+                tempCtx.beginPath();
+                tempCtx.moveTo(0, -flowerRadius * 0.35);
+                tempCtx.quadraticCurveTo(flowerRadius * 0.15, -flowerRadius * 0.7, 0, -flowerRadius);
+                tempCtx.quadraticCurveTo(-flowerRadius * 0.15, -flowerRadius * 0.7, 0, -flowerRadius * 0.35);
+                tempCtx.stroke();
+                tempCtx.restore();
+            }
+
+            let flowerImgData = tempCtx.getImageData(0, 0, cw, ch);
+            let stepBg = cw < 768 ? 4 : 5;
+            for (let y = 0; y < ch; y += stepBg) {
+                for (let x = 0; x < cw; x += stepBg) {
+                    let index = (y * cw + x) * 4;
+                    if (flowerImgData.data[index + 3] > 128) {
+                        shapeParticles.push(new ShapeParticle(x, y, 'bg'));
+                    }
+                }
+            }
+
+            // Bersihkan temporary canvas untuk Logo Red John
+            tempCtx.clearRect(0, 0, cw, ch);
+
+            // 2. LOGO RED JOHN (Senyum Berdarah di Atas Tulisan)
+            let radius = 110 * scale; 
+            let smileCenterY = centerY - (radius * 1.35); 
+
+            tempCtx.strokeStyle = '#ffffff';
+            tempCtx.lineWidth = 8 * scale;
+            tempCtx.lineCap = 'round';
+            tempCtx.lineJoin = 'round';
+
+            // Lingkaran luar
+            tempCtx.beginPath();
+            tempCtx.arc(centerX, smileCenterY, radius, Math.PI * 0.2, Math.PI * 1.9, false);
+            tempCtx.stroke();
+
+            // Mata kiri (sayu/sedih)
+            tempCtx.beginPath();
+            tempCtx.moveTo(centerX - radius * 0.4, smileCenterY - radius * 0.25);
+            tempCtx.quadraticCurveTo(centerX - radius * 0.25, smileCenterY - radius * 0.12, centerX - radius * 0.1, smileCenterY - radius * 0.22);
+            tempCtx.stroke();
+
+            // Mata kanan (sayu/sedih)
+            tempCtx.beginPath();
+            tempCtx.moveTo(centerX + radius * 0.1, smileCenterY - radius * 0.22);
+            tempCtx.quadraticCurveTo(centerX + radius * 0.25, smileCenterY - radius * 0.12, centerX + radius * 0.4, smileCenterY - radius * 0.25);
+            tempCtx.stroke();
+
+            // Senyuman
+            tempCtx.beginPath();
+            tempCtx.arc(centerX, smileCenterY + radius * 0.05, radius * 0.42, Math.PI * 0.15, Math.PI * 0.85, false);
+            tempCtx.stroke();
+
+            // Tetesan darah
+            tempCtx.lineWidth = 4 * scale;
+            let drips = [
+                {x: centerX - radius * 0.22, y: smileCenterY - radius * 0.15, len: radius * 0.75},
+                {x: centerX + radius * 0.22, y: smileCenterY - radius * 0.15, len: radius * 0.9},
+                {x: centerX - radius * 0.15, y: smileCenterY + radius * 0.42, len: radius * 0.55},
+                {x: centerX, y: smileCenterY + radius * 0.46, len: radius * 0.8},
+                {x: centerX + radius * 0.18, y: smileCenterY + radius * 0.43, len: radius * 1.1}
+            ];
+            drips.forEach(d => {
+                tempCtx.beginPath();
+                tempCtx.moveTo(d.x, d.y);
+                tempCtx.lineTo(d.x, d.y + d.len);
+                tempCtx.stroke();
+            });
+
+            let redJohnImgData = tempCtx.getImageData(0, 0, cw, ch);
+            for (let y = 0; y < ch; y += 3) {
+                for (let x = 0; x < cw; x += 3) {
+                    let index = (y * cw + x) * 4;
+                    if (redJohnImgData.data[index + 3] > 128) {
+                        shapeParticles.push(new ShapeParticle(x, y, 'redjohn'));
+                    }
+                }
+            }
+
+            // Bersihkan temporary canvas untuk Teks
+            tempCtx.clearRect(0, 0, cw, ch);
+
+            // 3. TULISAN "Semangat Meli"
+            let fontSize = cw < 480 ? 45 : (cw < 768 ? 60 : 90); 
+            tempCtx.font = `bold ${fontSize}px 'Dancing Script', cursive`;
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.textAlign = 'center';
+            tempCtx.textBaseline = 'middle';
+
+            let lineSpacing = fontSize * 1.05; 
+            let textY1 = centerY + (fontSize * 0.1); 
+            let textY2 = centerY + (fontSize * 1.15);
+
+            tempCtx.fillText("Semangat", centerX, textY1);
+            tempCtx.fillText("Meli", centerX, textY2);
+
+            const textImgData = tempCtx.getImageData(0, 0, cw, ch);
+            const step = cw < 768 ? 3 : 4; 
+            for (let y = 0; y < ch; y += step) {
+                for (let x = 0; x < cw; x += step) {
+                    let index = (y * cw + x) * 4;
+                    if (textImgData.data[index + 3] > 128) { 
+                        shapeParticles.push(new ShapeParticle(x, y, 'text'));
+                    }
+                }
+            }
+        }
+
+        function createExplosion(x, y, count = 100) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, false));
+            }
+        }
+
+        let projectileParticle = null;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            drawStars();
+
+            if (appState === 'launching') {
+                let elapsed = Date.now() - launchStartTime;
+                let progress = elapsed / LAUNCH_DURATION;
+
+                if (progress >= 1) {
+                    appState = 'fireworks';
+                    createExplosion(cw / 2, ch * 0.45, 120);
+                    generateShapePoints();
+                    projectileParticle = null;
+                } else {
+                    if (!projectileParticle) {
+                        projectileParticle = new Particle(cw / 2, ch * 0.9, true);
+                    }
+                    let startY = ch * 0.9;
+                    let targetY = ch * 0.45;
+                    projectileParticle.y = startY - ((startY - targetY) * progress);
+                    projectileParticle.update();
+                    projectileParticle.draw();
+                }
+            }
+
+            if (appState === 'fireworks') {
+                if (Math.random() < 0.035) {
+                    let randX = Math.random() * cw;
+                    let randY = Math.random() * (ch * 0.65);
+                    createExplosion(randX, randY, Math.random() * 30 + 15);
+                }
+                shapeParticles.forEach(sp => {
+                    sp.update();
+                    sp.draw();
+                });
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw();
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function launch() {
+            if (appState !== 'waiting') return;
+            
+            document.getElementById('click-overlay').style.display = 'none';
+            
+            const initialUI = document.getElementById('initial-ui');
+            initialUI.style.opacity = '0';
+            setTimeout(() => { initialUI.style.display = 'none'; }, 300);
+
+            appState = 'launching';
+            launchStartTime = Date.now();
+        }
+
+        animate();
+    </script>
+</body>
+</html>
