@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spriti BOmb</title>
+    <title>Semangat Meli</title>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
     <style>
         body, html {
@@ -226,22 +226,22 @@
                 this.y = ch * 0.4 + (Math.random() - 0.5) * 100;
                 this.tx = tx;
                 this.ty = ty;
-                this.type = type; // 'bg' (sketsa bunga), 'redjohn' (logo merah darah), 'text' (tulisan semangat meli)
+                this.type = type; 
                 
                 if (type === 'bg') {
-                    // Sketsa Bunga di Background (Redup & Transparan)
-                    this.color = Math.random() > 0.5 ? '#ff3366' : '#ff6699';
-                    this.size = Math.random() * 1 + 0.5;
-                    this.maxAlpha = Math.random() * 0.35 + 0.2;
+                    // Sketsa Bunga Background (Dibuat lebih terang & kontras agar jelas di HP)
+                    this.color = Math.random() > 0.5 ? '#ff4d88' : '#ff80bf';
+                    this.size = Math.random() * 1.2 + 0.7;
+                    this.maxAlpha = Math.random() * 0.5 + 0.3;
                 } else if (type === 'redjohn') {
-                    // Logo Red John / Senyum Berdarah (Merah Darah Pekat)
+                    // Logo Red John (Merah Darah Pekat Menyala)
                     this.color = Math.random() > 0.3 ? '#ff0000' : '#cc0000';
-                    this.size = Math.random() * 1.5 + 1.1;
+                    this.size = Math.random() * 1.8 + 1.2;
                     this.maxAlpha = 1;
                 } else {
-                    // Tulisan "Semangat Meli" (Pink dengan gradasi merah cerah)
-                    this.color = Math.random() > 0.3 ? '#ff66b2' : '#ff0055';
-                    this.size = Math.random() * 1.5 + 1.1;
+                    // Tulisan "Semangat Meli" (Dibuat tebal & cerah agar sangat jelas di HP)
+                    this.color = Math.random() > 0.3 ? '#ff80bf' : '#ff0055';
+                    this.size = Math.random() * 1.8 + 1.3;
                     this.maxAlpha = 1;
                 }
                 
@@ -269,8 +269,8 @@
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.globalAlpha = this.alpha;
-                ctx.shadowBlur = this.type === 'bg' ? 3 : 12;
-                ctx.shadowColor = this.type === 'redjohn' ? '#ff0000' : (this.type === 'bg' ? '#ff3366' : '#ff0055');
+                ctx.shadowBlur = this.type === 'bg' ? 4 : 14;
+                ctx.shadowColor = this.type === 'redjohn' ? '#ff0000' : (this.type === 'bg' ? '#ff4d88' : '#ff0055');
                 ctx.fill();
                 ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
@@ -280,7 +280,9 @@
         function generateShapePoints() {
             shapeParticles = [];
             
-            let scale = cw < 768 ? 0.55 : 1;
+            // Menggunakan ukuran responsif berdasarkan orientasi HP (portrait vs landscape)
+            let isMobile = cw < 768;
+            let scale = isMobile ? (cw / 400) : 1; // Otomatis menyesuaikan lebar layar HP
             let centerX = cw / 2;
             let centerY = ch * 0.45;
 
@@ -290,9 +292,9 @@
             tempCanvas.height = ch;
 
             // 1. SKETSA BUNGA (Background)
-            let flowerRadius = 240 * scale;
+            let flowerRadius = 180 * scale;
             tempCtx.strokeStyle = '#ffffff';
-            tempCtx.lineWidth = 2;
+            tempCtx.lineWidth = 2.5;
             
             tempCtx.beginPath();
             tempCtx.arc(centerX, centerY, flowerRadius * 0.35, 0, Math.PI * 2);
@@ -313,7 +315,7 @@
             }
 
             let flowerImgData = tempCtx.getImageData(0, 0, cw, ch);
-            let stepBg = cw < 768 ? 4 : 5;
+            let stepBg = isMobile ? 3 : 5; // Kerapatan pixel disesuaikan untuk HP
             for (let y = 0; y < ch; y += stepBg) {
                 for (let x = 0; x < cw; x += stepBg) {
                     let index = (y * cw + x) * 4;
@@ -326,12 +328,12 @@
             // Bersihkan temporary canvas untuk Logo Red John
             tempCtx.clearRect(0, 0, cw, ch);
 
-            // 2. LOGO RED JOHN (Senyum Berdarah di Atas Tulisan)
-            let radius = 110 * scale; 
-            let smileCenterY = centerY - (radius * 1.35); 
+            // 2. LOGO RED JOHN (Di atas tulisan)
+            let radius = 75 * scale; 
+            let smileCenterY = centerY - (isMobile ? 110 : 140); 
 
             tempCtx.strokeStyle = '#ffffff';
-            tempCtx.lineWidth = 8 * scale;
+            tempCtx.lineWidth = 7 * scale;
             tempCtx.lineCap = 'round';
             tempCtx.lineJoin = 'round';
 
@@ -340,13 +342,12 @@
             tempCtx.arc(centerX, smileCenterY, radius, Math.PI * 0.2, Math.PI * 1.9, false);
             tempCtx.stroke();
 
-            // Mata kiri (sayu/sedih)
+            // Mata kiri & kanan
             tempCtx.beginPath();
             tempCtx.moveTo(centerX - radius * 0.4, smileCenterY - radius * 0.25);
             tempCtx.quadraticCurveTo(centerX - radius * 0.25, smileCenterY - radius * 0.12, centerX - radius * 0.1, smileCenterY - radius * 0.22);
             tempCtx.stroke();
 
-            // Mata kanan (sayu/sedih)
             tempCtx.beginPath();
             tempCtx.moveTo(centerX + radius * 0.1, smileCenterY - radius * 0.22);
             tempCtx.quadraticCurveTo(centerX + radius * 0.25, smileCenterY - radius * 0.12, centerX + radius * 0.4, smileCenterY - radius * 0.25);
@@ -358,7 +359,7 @@
             tempCtx.stroke();
 
             // Tetesan darah
-            tempCtx.lineWidth = 4 * scale;
+            tempCtx.lineWidth = 3.5 * scale;
             let drips = [
                 {x: centerX - radius * 0.22, y: smileCenterY - radius * 0.15, len: radius * 0.75},
                 {x: centerX + radius * 0.22, y: smileCenterY - radius * 0.15, len: radius * 0.9},
@@ -374,8 +375,9 @@
             });
 
             let redJohnImgData = tempCtx.getImageData(0, 0, cw, ch);
-            for (let y = 0; y < ch; y += 3) {
-                for (let x = 0; x < cw; x += 3) {
+            let stepRedJohn = isMobile ? 2 : 3;
+            for (let y = 0; y < ch; y += stepRedJohn) {
+                for (let x = 0; x < cw; x += stepRedJohn) {
                     let index = (y * cw + x) * 4;
                     if (redJohnImgData.data[index + 3] > 128) {
                         shapeParticles.push(new ShapeParticle(x, y, 'redjohn'));
@@ -386,24 +388,24 @@
             // Bersihkan temporary canvas untuk Teks
             tempCtx.clearRect(0, 0, cw, ch);
 
-            // 3. TULISAN "Semangat Meli"
-            let fontSize = cw < 480 ? 45 : (cw < 768 ? 60 : 90); 
+            // 3. TULISAN "Semangat Meli" (Diperbesar ukurannya khusus untuk layar HP)
+            let fontSize = isMobile ? 52 : 90; 
             tempCtx.font = `bold ${fontSize}px 'Dancing Script', cursive`;
             tempCtx.fillStyle = '#ffffff';
             tempCtx.textAlign = 'center';
             tempCtx.textBaseline = 'middle';
 
             let lineSpacing = fontSize * 1.05; 
-            let textY1 = centerY + (fontSize * 0.1); 
-            let textY2 = centerY + (fontSize * 1.15);
+            let textY1 = centerY + (isMobile ? 15 : 20); 
+            let textY2 = textY1 + lineSpacing;
 
             tempCtx.fillText("Semangat", centerX, textY1);
             tempCtx.fillText("Meli", centerX, textY2);
 
             const textImgData = tempCtx.getImageData(0, 0, cw, ch);
-            const step = cw < 768 ? 3 : 4; 
-            for (let y = 0; y < ch; y += step) {
-                for (let x = 0; x < cw; x += step) {
+            let stepText = isMobile ? 2 : 4; 
+            for (let y = 0; y < ch; y += stepText) {
+                for (let x = 0; x < cw; x += stepText) {
                     let index = (y * cw + x) * 4;
                     if (textImgData.data[index + 3] > 128) { 
                         shapeParticles.push(new ShapeParticle(x, y, 'text'));
