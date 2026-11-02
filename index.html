@@ -229,19 +229,19 @@
                 this.type = type; 
                 
                 if (type === 'bg') {
-                    // Sketsa Bunga Background (Dibuat lebih terang & kontras agar jelas di HP)
+                    // Sketsa Bunga Background (Dibuat lebih lembut agar tidak menutupi teks)
                     this.color = Math.random() > 0.5 ? '#ff4d88' : '#ff80bf';
-                    this.size = Math.random() * 1.2 + 0.7;
-                    this.maxAlpha = Math.random() * 0.5 + 0.3;
+                    this.size = Math.random() * 1.1 + 0.6;
+                    this.maxAlpha = Math.random() * 0.3 + 0.15;
                 } else if (type === 'redjohn') {
                     // Logo Red John (Merah Darah Pekat Menyala)
                     this.color = Math.random() > 0.3 ? '#ff0000' : '#cc0000';
                     this.size = Math.random() * 1.8 + 1.2;
                     this.maxAlpha = 1;
                 } else {
-                    // Tulisan "Semangat Meli" (Dibuat tebal & cerah agar sangat jelas di HP)
-                    this.color = Math.random() > 0.3 ? '#ff80bf' : '#ff0055';
-                    this.size = Math.random() * 1.8 + 1.3;
+                    // Tulisan "Semangat Meli" (Sangat terang & tebal agar jelas di HP)
+                    this.color = Math.random() > 0.3 ? '#ff99cc' : '#ff1a75';
+                    this.size = Math.random() * 2.0 + 1.4;
                     this.maxAlpha = 1;
                 }
                 
@@ -269,7 +269,7 @@
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 ctx.globalAlpha = this.alpha;
-                ctx.shadowBlur = this.type === 'bg' ? 4 : 14;
+                ctx.shadowBlur = this.type === 'bg' ? 2 : 16;
                 ctx.shadowColor = this.type === 'redjohn' ? '#ff0000' : (this.type === 'bg' ? '#ff4d88' : '#ff0055');
                 ctx.fill();
                 ctx.shadowBlur = 0;
@@ -280,9 +280,8 @@
         function generateShapePoints() {
             shapeParticles = [];
             
-            // Menggunakan ukuran responsif berdasarkan orientasi HP (portrait vs landscape)
             let isMobile = cw < 768;
-            let scale = isMobile ? (cw / 400) : 1; // Otomatis menyesuaikan lebar layar HP
+            let scale = isMobile ? (cw / 380) : 1; 
             let centerX = cw / 2;
             let centerY = ch * 0.45;
 
@@ -291,10 +290,10 @@
             tempCanvas.width = cw;
             tempCanvas.height = ch;
 
-            // 1. SKETSA BUNGA (Background)
-            let flowerRadius = 180 * scale;
+            // 1. SKETSA BUNGA (Background diperbesar sedikit agar merata)
+            let flowerRadius = 210 * scale;
             tempCtx.strokeStyle = '#ffffff';
-            tempCtx.lineWidth = 2.5;
+            tempCtx.lineWidth = 2;
             
             tempCtx.beginPath();
             tempCtx.arc(centerX, centerY, flowerRadius * 0.35, 0, Math.PI * 2);
@@ -315,7 +314,7 @@
             }
 
             let flowerImgData = tempCtx.getImageData(0, 0, cw, ch);
-            let stepBg = isMobile ? 3 : 5; // Kerapatan pixel disesuaikan untuk HP
+            let stepBg = isMobile ? 4 : 5; 
             for (let y = 0; y < ch; y += stepBg) {
                 for (let x = 0; x < cw; x += stepBg) {
                     let index = (y * cw + x) * 4;
@@ -325,24 +324,22 @@
                 }
             }
 
-            // Bersihkan temporary canvas untuk Logo Red John
+            // Bersihkan temporary canvas
             tempCtx.clearRect(0, 0, cw, ch);
 
-            // 2. LOGO RED JOHN (Di atas tulisan)
-            let radius = 75 * scale; 
-            let smileCenterY = centerY - (isMobile ? 110 : 140); 
+            // 2. LOGO RED JOHN (Dinaikkan sedikit posisinya)
+            let radius = 68 * scale; 
+            let smileCenterY = centerY - (isMobile ? 130 : 150); 
 
             tempCtx.strokeStyle = '#ffffff';
-            tempCtx.lineWidth = 7 * scale;
+            tempCtx.lineWidth = 6.5 * scale;
             tempCtx.lineCap = 'round';
             tempCtx.lineJoin = 'round';
 
-            // Lingkaran luar
             tempCtx.beginPath();
             tempCtx.arc(centerX, smileCenterY, radius, Math.PI * 0.2, Math.PI * 1.9, false);
             tempCtx.stroke();
 
-            // Mata kiri & kanan
             tempCtx.beginPath();
             tempCtx.moveTo(centerX - radius * 0.4, smileCenterY - radius * 0.25);
             tempCtx.quadraticCurveTo(centerX - radius * 0.25, smileCenterY - radius * 0.12, centerX - radius * 0.1, smileCenterY - radius * 0.22);
@@ -353,12 +350,10 @@
             tempCtx.quadraticCurveTo(centerX + radius * 0.25, smileCenterY - radius * 0.12, centerX + radius * 0.4, smileCenterY - radius * 0.25);
             tempCtx.stroke();
 
-            // Senyuman
             tempCtx.beginPath();
             tempCtx.arc(centerX, smileCenterY + radius * 0.05, radius * 0.42, Math.PI * 0.15, Math.PI * 0.85, false);
             tempCtx.stroke();
 
-            // Tetesan darah
             tempCtx.lineWidth = 3.5 * scale;
             let drips = [
                 {x: centerX - radius * 0.22, y: smileCenterY - radius * 0.15, len: radius * 0.75},
@@ -385,18 +380,18 @@
                 }
             }
 
-            // Bersihkan temporary canvas untuk Teks
+            // Bersihkan temporary canvas
             tempCtx.clearRect(0, 0, cw, ch);
 
-            // 3. TULISAN "Semangat Meli" (Diperbesar ukurannya khusus untuk layar HP)
-            let fontSize = isMobile ? 52 : 90; 
+            // 3. TULISAN "Semangat Meli" (Dibuat ukuran pas dan tebal agar sangat mudah dibaca)
+            let fontSize = isMobile ? 46 : 85; 
             tempCtx.font = `bold ${fontSize}px 'Dancing Script', cursive`;
             tempCtx.fillStyle = '#ffffff';
             tempCtx.textAlign = 'center';
             tempCtx.textBaseline = 'middle';
 
             let lineSpacing = fontSize * 1.05; 
-            let textY1 = centerY + (isMobile ? 15 : 20); 
+            let textY1 = centerY + (isMobile ? 25 : 30); 
             let textY2 = textY1 + lineSpacing;
 
             tempCtx.fillText("Semangat", centerX, textY1);
